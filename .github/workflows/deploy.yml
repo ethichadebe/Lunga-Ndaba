@@ -1,0 +1,16 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+jobs:
+  deploy:
+    uses: ethichadebe/workflows/.github/workflows/compose-deploy.yml@main
+    permissions:
+      contents: read
+      packages: write
+    with:
+      app: lunga-ndaba
+      backend-dockerfile: backend/Dockerfile
+      frontend-dockerfile: frontend/Dockerfile
+    secrets: inherit
