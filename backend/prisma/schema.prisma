@@ -1,0 +1,105 @@
+// Migrations here must stay additive: the deploy checks a candidate against the
+// live database, and refuses any migration that drops, renames, retypes or adds
+// NOT NULL to an existing column. Add tables and nullable columns only.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// A shoot or body of work. Unpublished until he switches it on.
+model Project {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  summary      String?
+  dateLabel    String?
+  location     String?
+  coverPhotoId String?
+  position     Int      @default(0)
+  published    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  photos       Photo[]
+  videos       Video[]
+
+  @@index([published, position])
+}
+
+// One uploaded image. The original is kept untouched on the uploads volume;
+// the web sizes are generated from it and listed in `widths`.
+model Photo {
+  id           String   @id @default(cuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  originalName String
+  originalPath String
+  mimeType     String
+  bytes        Int
+  width        Int?
+  height       Int?
+  status       String   @default("processing") // processing | ready | failed
+  error        String?
+  widths       Int[]    @default([])
+  version      String?
+  color        String?
+  blur         String?
+  alt          String?
+  caption      String?
+  position     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([projectId, position])
+  @@index([status])
+}
+
+// A film hosted on YouTube or Vimeo. Nothing is stored on our disk.
+model Video {
+  id           String   @id @default(cuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider     String // youtube | vimeo
+  providerId   String
+  title        String?
+  caption      String?
+  shape        String   @default("landscape") // landscape | vertical | square
+  thumbnailUrl String?
+  position     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([projectId, position])
+}
+
+// The note box. Nothing is public until approved.
+model Note {
+  id         String    @id @default(cuid())
+  name       String
+  message    String
+  relation   String?
+  status     String    @default("pending") // pending | approved
+  ipHash     String
+  createdAt  DateTime  @default(now())
+  approvedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+// His own words about himself. One row, id = "profile".
+model Profile {
+  id          String   @id @default("profile")
+  displayName String?
+  intro       String?
+  bio         String?
+  email       String?
+  instagram   String?
+  location    String?
+  updatedAt   DateTime @updatedAt
+}

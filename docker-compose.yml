@@ -1,0 +1,42 @@
+# Local development: builds from source. Production uses docker-compose.prod.yml.
+name: lunga-ndaba-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: lunga
+      POSTGRES_USER: lunga
+      POSTGRES_PASSWORD: lunga
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lunga -d lunga"]
+      interval: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://lunga:lunga@db:5432/lunga
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
+      SESSION_SECRET: dev-only-secret
+    volumes:
+      - ./uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

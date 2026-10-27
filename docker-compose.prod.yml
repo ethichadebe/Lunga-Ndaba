@@ -1,0 +1,56 @@
+# Production. Images are built on CI and pulled by digest; the deploy sets
+# BACKEND_IMAGE and FRONTEND_IMAGE in /opt/lunga-ndaba/.env at cutover.
+# `db` is never swapped by a deploy: its image is fixed here.
+#
+# Before the very first deploy the two image values in .env are empty, and
+# compose refuses to run at all. Start the database once with stand-in names
+# (docs/go-live.md, step 3); the deploy fills in the real ones.
+name: lunga-ndaba
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lunga}
+      POSTGRES_USER: ${POSTGRES_USER:-lunga}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    # Making web sizes from a large original needs a few hundred MB at a time.
+    mem_limit: 1g
+    env_file: .env
+    environment:
+      PORT: "3003"
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      # His photographs. A folder on the host, outside every container, so a
+      # deploy (which replaces this container) cannot touch it. The backend
+      # refuses uploads if this mount is missing.
+      - /opt/lunga-ndaba/uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    restart: unless-stopped
+    mem_limit: 128m
+    ports:
+      # Host side comes from .env, e.g. FRONTEND_PORT=127.0.0.1:8093.
+      - "${FRONTEND_PORT:?set FRONTEND_PORT in .env}:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

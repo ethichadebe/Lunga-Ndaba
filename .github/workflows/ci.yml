@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  backend:
+    uses: ethichadebe/workflows/.github/workflows/node-checks.yml@main
+    with:
+      working-directory: backend
+      lint: npm run lint
+      test: npm test
+
+  frontend:
+    uses: ethichadebe/workflows/.github/workflows/node-checks.yml@main
+    with:
+      working-directory: frontend
+      build: npm run build
