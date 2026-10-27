@@ -1,7 +1,7 @@
 import { render } from 'preact';
 import { lazy, Suspense } from 'preact/compat';
 import { usePath } from './router.js';
-import { Desktop } from './Desktop.jsx';
+import { Site } from './Site.jsx';
 import './styles.css';
 
 // The admin is a separate download: visitors never load it.
@@ -16,7 +16,7 @@ function Root() {
       </Suspense>
     );
   }
-  return <Desktop />;
+  return <Site />;
 }
 
 render(<Root />, document.getElementById('app'));

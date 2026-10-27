@@ -6,7 +6,8 @@ desktop (menu bar, dock, windows), with the photographs always first.
 - `frontend/` — Preact + Vite, served by nginx (which also proxies `/api` and `/media`).
 - `backend/` — Node 22, Express, Prisma/Postgres, `sharp` for image sizes. Port 3003.
 - `docs/plan.md` — the design: data model, image pipeline, admin, icons.
-- `docs/server.md` — server setup, and where his photographs live.
+- `docs/go-live.md` — every step to get it live, in order.
+- `docs/server.md` — where his photographs live on the server.
 
 ## Run it locally
 

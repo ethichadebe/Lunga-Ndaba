@@ -88,6 +88,26 @@ page with six films then costs six thumbnails, not six players. The frame is
 styled into the window: rounded, matching the chrome, and the right shape for
 landscape, vertical or square.
 
+## Phone and tablet: a device of their own
+
+On a phone or tablet the site behaves like the device in the visitor's hand,
+not like a shrunken desktop. Phones are up to 760 px wide. Tablets are up to
+1023 px, or up to 1366 px with a touch screen.
+
+- **Lock screen**, on the first visit to the front page each session. Its
+  wallpaper is one of his photographs, full screen; a portrait one is picked on
+  a portrait screen. It shows a large clock and date, and his approved notes as
+  notifications. Tapping one opens Notes. "From “project”" opens the
+  photograph's project. Swipe up, tap, or press Enter to open. A link straight
+  to a project skips it.
+- **Home screen**: the same photograph as wallpaper, a "Latest work" widget,
+  every other project as an icon made from its cover, plus About and
+  Instagram. A dock holds Work, Films, Notes and Contact.
+- **Apps open full screen**, with a back button and a home bar. No dock or
+  window chrome sits over the photographs.
+- **Installable**: a web app manifest, so "Add to Home Screen" gives a
+  full-screen app with our own icon.
+
 ## The desktop (public site)
 
 - **Menu bar** (top, slim): the "LN" mark, his name, then Work · Films · Notes ·

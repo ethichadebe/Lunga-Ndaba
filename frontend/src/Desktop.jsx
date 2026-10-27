@@ -1,42 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
 import { navigate, usePath, onLink } from './router.js';
-import { useData } from './api.js';
 import { APPS, MarkIcon, OutboundCameraIcon, CloseGlyph, MaximiseGlyph, RestoreGlyph } from './icons.jsx';
 import { Picture, croppedSizes } from './Picture.jsx';
 import { Viewer } from './Viewer.jsx';
-import { WorkIndex } from './apps/WorkIndex.jsx';
-import { Project } from './apps/Project.jsx';
-import { Films } from './apps/Films.jsx';
-import { Notes } from './apps/Notes.jsx';
-import { About } from './apps/About.jsx';
-import { Contact } from './apps/Contact.jsx';
+import { specFor, windowTitle, AppBody } from './shell.jsx';
 
 const MENU_H = 30;
-const NARROW = '(max-width: 760px)';
-
-function useMedia(query) {
-  const [match, setMatch] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const m = window.matchMedia(query);
-    const on = () => setMatch(m.matches);
-    m.addEventListener('change', on);
-    return () => m.removeEventListener('change', on);
-  }, [query]);
-  return match;
-}
-
-// What window an address opens. Every window has an address, so any view can
-// be shared as a link.
-function specFor(path) {
-  const clean = path.replace(/\/+$/, '') || '/';
-  const project = clean.match(/^\/work\/([a-z0-9-]+)$/);
-  if (project) return { key: clean, app: 'project', slug: project[1] };
-  const app = APPS.find((a) => a.href === clean);
-  return app ? { key: app.href, app: app.id } : null;
-}
-
-const PARENT = (key) => (key.startsWith('/work/') ? '/work' : '/');
-
 function area() {
   const w = window.innerWidth;
   // Leave room for the dock, so no window runs behind it.
@@ -62,15 +31,13 @@ function placeFor(spec, count) {
   return { x: Math.max(24, (aw - w) / 2 + step), y: 36 + step, w, h: Math.min(720, ah - 48) };
 }
 
-export function Desktop() {
+// Wide screens: windows that can be moved, focused and filled.
+export function DesktopOS({ work, profile }) {
   const path = usePath();
-  const narrow = useMedia(NARROW);
   const [wins, setWins] = useState([]);
   const [viewer, setViewer] = useState(null);
   const z = useRef(1);
   const first = useRef(true);
-  const work = useData('/work');
-  const profile = useData('/profile').data;
 
   // Follow the address: open (or bring forward) the window it names.
   useEffect(() => {
@@ -105,29 +72,23 @@ export function Desktop() {
   const close = (key) => {
     const rest = wins.filter((w) => w.key !== key);
     setWins(rest);
-    if (narrow) {
-      navigate(PARENT(key));
-    } else {
-      const next = rest.reduce((a, b) => (!a || b.z > a.z ? b : a), null);
-      navigate(next ? next.key : '/', { replace: true });
-    }
+    const next = rest.reduce((a, b) => (!a || b.z > a.z ? b : a), null);
+    navigate(next ? next.key : '/', { replace: true });
   };
 
   const update = useCallback((key, patch) => {
     setWins((list) => list.map((w) => (w.key === key ? { ...w, ...patch } : w)));
   }, []);
 
-  // On a phone, one window at a time: the one the address names.
-  const current = specFor(path)?.key;
-  const shown = narrow ? wins.filter((w) => w.key === current) : wins;
+  const shown = wins;
   const openKeys = new Set(wins.map((w) => w.key));
   const projects = work.data?.projects || [];
 
   return (
-    <div class={`os ${narrow ? 'os--narrow' : ''}`}>
-      <MenuBar narrow={narrow} name={profile?.displayName} />
+    <div class="os">
+      <MenuBar name={profile?.displayName} />
       <main class="desk" aria-label="Desktop">
-        {!narrow && projects.length > 0 && (
+        {projects.length > 0 && (
           <nav class="desk__icons" aria-label="Projects">
             {projects.slice(0, 7).map((p) => (
               <a key={p.slug} href={`/work/${p.slug}`} onClick={onLink} class="sleeve">
@@ -139,12 +100,10 @@ export function Desktop() {
             ))}
           </nav>
         )}
-        {narrow && shown.length === 0 && <HomeScreen projects={projects} />}
         {shown.map((w) => (
           <Window
             key={w.key}
             win={w}
-            narrow={narrow}
             active={w.key === top?.key}
             title={windowTitle(w, work.data)}
             onFocus={() => focus(w.key)}
@@ -155,37 +114,13 @@ export function Desktop() {
           </Window>
         ))}
       </main>
-      <Dock openKeys={openKeys} current={top?.key} instagram={profile?.instagram} narrow={narrow} />
+      <Dock openKeys={openKeys} current={top?.key} instagram={profile?.instagram} />
       {viewer && <Viewer {...viewer} onClose={() => setViewer(null)} />}
     </div>
   );
 }
 
-function windowTitle(w, work) {
-  if (w.app === 'project') return work?.projects?.find((p) => p.slug === w.slug)?.title || 'Project';
-  return APPS.find((a) => a.id === w.app)?.label || '';
-}
-
-function AppBody({ win, work, profile, onView }) {
-  switch (win.app) {
-    case 'work':
-      return <WorkIndex state={work} />;
-    case 'project':
-      return <Project slug={win.slug} onView={onView} />;
-    case 'films':
-      return <Films />;
-    case 'notes':
-      return <Notes />;
-    case 'about':
-      return <About profile={profile} />;
-    case 'contact':
-      return <Contact profile={profile} />;
-    default:
-      return null;
-  }
-}
-
-function MenuBar({ narrow, name }) {
+function MenuBar({ name }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 20_000);
@@ -199,22 +134,20 @@ function MenuBar({ narrow, name }) {
         <MarkIcon size={18} label="" />
       </a>
       <a href="/work" onClick={onLink} class="menubar__name">{name || 'Lunga Ndaba'}</a>
-      {!narrow && (
-        <nav class="menubar__menu" aria-label="Main">
-          {APPS.map((a) => (
-            <a key={a.id} href={a.href} onClick={onLink}>{a.label}</a>
-          ))}
-        </nav>
-      )}
+      <nav class="menubar__menu" aria-label="Main">
+        {APPS.map((a) => (
+          <a key={a.id} href={a.href} onClick={onLink}>{a.label}</a>
+        ))}
+      </nav>
       <span class="menubar__clock">
-        {!narrow && <span>{day}</span>}
+        <span>{day}</span>
         <time>{time}</time>
       </span>
     </header>
   );
 }
 
-function Dock({ openKeys, current, instagram, narrow }) {
+function Dock({ openKeys, current, instagram }) {
   const isOpen = (href) => [...openKeys].some((k) => k === href || k.startsWith(`${href}/`));
   return (
     <nav class="dock" aria-label="Apps">
@@ -227,7 +160,7 @@ function Dock({ openKeys, current, instagram, narrow }) {
             class={`dock__app ${isOpen(href) ? 'is-open' : ''}`}
             aria-current={current === href ? 'page' : undefined}
           >
-            <Icon size={narrow ? 40 : 50} />
+            <Icon size={50} />
             <span class="dock__label">{label}</span>
           </a>
         ))}
@@ -235,7 +168,7 @@ function Dock({ openKeys, current, instagram, narrow }) {
           <>
             <span class="dock__divider" aria-hidden="true" />
             <a class="dock__app" href={`https://www.instagram.com/${instagram}/`} target="_blank" rel="noopener noreferrer">
-              <OutboundCameraIcon size={narrow ? 40 : 50} />
+              <OutboundCameraIcon size={50} />
               <span class="dock__label">Instagram</span>
             </a>
           </>
@@ -245,30 +178,12 @@ function Dock({ openKeys, current, instagram, narrow }) {
   );
 }
 
-// On a phone with every window closed: the projects, as big covers.
-function HomeScreen({ projects }) {
-  return (
-    <div class="home">
-      {projects.map((p, i) => (
-        <a key={p.slug} href={`/work/${p.slug}`} onClick={onLink} class="home__item">
-          {p.cover ? <Picture photo={p.cover} sizes={croppedSizes(p.cover, 0.8, [['', '50vw']])} eager={i < 4} /> : <span class="sleeve__empty" />}
-          <span>{p.title}</span>
-        </a>
-      ))}
-    </div>
-  );
-}
-
-function Window({ win, narrow, active, title, onFocus, onClose, onChange, children }) {
+function Window({ win, active, title, onFocus, onClose, onChange, children }) {
   const drag = useRef(null);
   const body = useRef(null);
 
-  useEffect(() => {
-    if (active && narrow) body.current?.scrollTo?.(0, 0);
-  }, [win.key, narrow]);
-
   const startDrag = (e) => {
-    if (narrow || win.max || e.button !== 0 || e.target.closest('button')) return;
+    if (win.max || e.button !== 0 || e.target.closest('button')) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { dx: e.clientX - win.x, dy: e.clientY - win.y };
   };
@@ -283,7 +198,7 @@ function Window({ win, narrow, active, title, onFocus, onClose, onChange, childr
     drag.current = null;
   };
 
-  const style = narrow || win.max ? { zIndex: win.z } : { left: win.x, top: win.y, width: win.w, height: win.h, zIndex: win.z };
+  const style = win.max ? { zIndex: win.z } : { left: win.x, top: win.y, width: win.w, height: win.h, zIndex: win.z };
 
   return (
     <section
@@ -298,17 +213,15 @@ function Window({ win, narrow, active, title, onFocus, onClose, onChange, childr
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onDblClick={() => !narrow && onChange({ max: !win.max })}
+        onDblClick={() => onChange({ max: !win.max })}
       >
         <h2 class="win__title">{title}</h2>
         <div class="win__buttons">
-          {!narrow && (
-            <button type="button" class="win__btn" onClick={() => onChange({ max: !win.max })} aria-label={win.max ? 'Restore' : 'Fill the screen'}>
-              {win.max ? <RestoreGlyph size={16} /> : <MaximiseGlyph size={16} />}
-            </button>
-          )}
+          <button type="button" class="win__btn" onClick={() => onChange({ max: !win.max })} aria-label={win.max ? 'Restore' : 'Fill the screen'}>
+            {win.max ? <RestoreGlyph size={16} /> : <MaximiseGlyph size={16} />}
+          </button>
           <button type="button" class="win__btn" onClick={onClose} aria-label={`Close ${title}`}>
-            <CloseGlyph size={narrow ? 20 : 16} />
+            <CloseGlyph size={16} />
           </button>
         </div>
       </div>
